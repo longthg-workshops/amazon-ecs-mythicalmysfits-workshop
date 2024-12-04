@@ -24,9 +24,6 @@ fi
 echo "Installing ECR Cred Helper..."
 sudo script/credhelper
 
-echo "Attaching Instance Profile to your IDE instance..."
-script/associate-profile
-
 echo "Resizing your IDE instance root volume..."
 script/resize
 
