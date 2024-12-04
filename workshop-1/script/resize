@@ -32,7 +32,8 @@ then
 # Check if we're on AL2
   STR=$(cat /etc/os-release)
   SUB="VERSION_ID=\"2\""
-  if [[ "$STR" == *"$SUB"* ]]
+  SUB23="VERSION_ID=\"2023\""
+  if [[ "$STR" == *"$SUB"* || "$STR" == *"$SUB23"* ]]
   then
     sudo xfs_growfs -d /
   else
