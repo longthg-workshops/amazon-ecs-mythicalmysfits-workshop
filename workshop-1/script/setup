@@ -24,10 +24,10 @@ fi
 echo "Installing ECR Cred Helper..."
 sudo script/credhelper
 
-echo "Attaching Instance Profile to Cloud9..."
+echo "Attaching Instance Profile to your IDE instance..."
 script/associate-profile
 
-echo "Resizing Cloud9 root volume..."
+echo "Resizing your IDE instance root volume..."
 script/resize
 
 echo "Success!"
