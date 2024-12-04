@@ -2,7 +2,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: This stack deploys the core network infrastructure and IAM resources
              to be used for a service hosted in Amazon ECS using AWS Fargate.
-
+#------------------------------------------------------
+# Parameters
+#------------------------------------------------------
 Parameters:
   SkipBucket:
     Type: String
@@ -10,7 +12,27 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-
+  IdeInstanceType:
+    Description: VSCode IDE EC2 instance type
+    Type: String
+    Default: t2.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+  IdeAmiId:
+    Description: latest image id for your OS
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>" 
+    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" 
+  IdeUser:
+    Description: IDE EC2 username
+    Type: String
+    Default: ec2-user
+    ConstraintDescription: must be a valid Linux user name.
+  VSCodeServerVersion:
+    Type: String
+    Description: VSCodeServerVersion
+    Default: 4.95.3
+#------------------------------------------------------
+# Conditions
+#------------------------------------------------------
 Conditions:
   MakeBucket:
     Fn::Equals: ["false", !Ref SkipBucket]
@@ -40,6 +62,8 @@ Mappings:
       CIDR: '10.0.2.0/24'
     PrivateTwo:
       CIDR: '10.0.3.0/24'
+    PublicIDE:
+      CIDR: '10.0.4.0/24'
 
 Resources:
   MythicalBucket:
@@ -50,24 +74,45 @@ Resources:
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   Mono:
     Type: AWS::ECR::Repository
+    Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   Like:
     Type: AWS::ECR::Repository
+    Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalEcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Sub Cluster-${AWS::StackName}
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalMonolithLogGroup:
     Type: AWS::Logs::LogGroup
+    Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalMonolithTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
       Cpu: 256
       ExecutionRoleArn: !GetAtt EcsServiceRole.Arn
       Family: !Sub Monolith-Definition-${AWS::StackName}
@@ -107,6 +152,9 @@ Resources:
             FromPort: 80
             ToPort: 80
             CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -119,6 +167,9 @@ Resources:
       Subnets:
         - !Ref PublicSubnetOne
         - !Ref PublicSubnetTwo
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -129,6 +180,9 @@ Resources:
       LoadBalancerArn: !Ref MythicalLoadBalancer
       Port: 80
       Protocol: HTTP
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalMonolithTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -142,6 +196,9 @@ Resources:
       Protocol: HTTP
       VpcId: !Ref VPC
       TargetType: ip
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   MythicalMonolithService:
     Type: AWS::ECS::Service
@@ -166,6 +223,9 @@ Resources:
             - !Ref PrivateSubnetOne
             - !Ref PrivateSubnetTwo
       TaskDefinition: !Ref MythicalMonolithTaskDefinition
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   # VPC in which containers will be networked.
   # It has two public subnets, and two private subnets.
@@ -180,6 +240,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub Mysfits-VPC-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
 
   # Two public subnets, where a public load balancer will later be created.
   PublicSubnetOne:
@@ -195,6 +257,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub MysfitsPublicOne-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
   PublicSubnetTwo:
     Type: AWS::EC2::Subnet
     Properties:
@@ -208,6 +272,23 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub MysfitsPublicTwo-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
+  IdePublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+         Fn::Select:
+         - 0
+         - Fn::GetAZs: {Ref: 'AWS::Region'}
+      VpcId: !Ref 'VPC'
+      CidrBlock: !FindInMap ['SubnetConfig', 'PublicIDE', 'CIDR']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub MysfitsPublicOne-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
 
   # Two private subnets where containers will only have private
   # IP addresses, and will only be reachable by other members of the
@@ -224,6 +305,8 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub MysfitsPrivateOne-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
   PrivateSubnetTwo:
     Type: AWS::EC2::Subnet
     Properties:
@@ -236,10 +319,16 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub MysfitsPrivateTwo-${AWS::StackName}
+        - Key: group
+          Value: ecs-mythical
 
   # Setup networking resources for the public subnets.
   InternetGateway:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   GatewayAttachement:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -249,6 +338,9 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref 'VPC'
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: GatewayAttachement
@@ -265,6 +357,11 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref PublicRouteTable
+  IdePublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IdePublicSubnet
       RouteTableId: !Ref PublicRouteTable
 
   # Setup networking resources for the private subnets. Containers
@@ -286,15 +383,24 @@ Resources:
     Properties:
       AllocationId: !GetAtt NatGatewayOneAttachment.AllocationId
       SubnetId: !Ref PublicSubnetOne
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   NatGatewayTwo:
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt NatGatewayTwoAttachment.AllocationId
       SubnetId: !Ref PublicSubnetTwo
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   PrivateRouteTableOne:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref 'VPC'
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   PrivateRouteOne:
     Type: AWS::EC2::Route
     Properties:
@@ -310,6 +416,9 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref 'VPC'
+      Tags:
+        - Key: group
+          Value: ecs-mythical
   PrivateRouteTwo:
     Type: AWS::EC2::Route
     Properties:
@@ -358,6 +467,9 @@ Resources:
           # Allow access to NLB from anywhere on the internet
           - CidrIp: !FindInMap ['SubnetConfig', 'VPC', 'CIDR']
             IpProtocol: -1
+      Tags:
+        - Key: group
+          Value: ecs-mythical
 
   # This is an IAM role which authorizes ECS to manage resources on your
   # account on your behalf, such as updating your load balancer with the
@@ -366,6 +478,9 @@ Resources:
   EcsServiceRole:
     Type: AWS::IAM::Role
     Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
       AssumeRolePolicyDocument:
         Statement:
         - Effect: Allow
@@ -427,6 +542,9 @@ Resources:
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
       AssumeRolePolicyDocument:
         Statement:
         - Effect: Allow
@@ -473,6 +591,9 @@ Resources:
   MythicalDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
       TableName: !Sub Table-${AWS::StackName}
       AttributeDefinitions:
         - AttributeName: MysfitId
@@ -510,14 +631,125 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
-
-  MythicalEnvironment:
-    Type: AWS::Cloud9::EnvironmentEC2
+#------------------------------------------------------
+# IDE Server Security Group
+#------------------------------------------------------
+  VSCodeServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
     Properties:
-      AutomaticStopTimeMinutes: 30
-      InstanceType: t2.small
-      Name: !Sub Project-${AWS::StackName}
-      SubnetId: !Ref PublicSubnetOne
+      Tags:
+        - Key: group
+          Value: ecs-mythical
+      GroupDescription: allow ingress
+      VpcId: !Ref VPC
+
+  VSCodeServerSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: open port 8080 for the IDE instance
+      GroupId: 
+        Fn::GetAtt:
+          - VSCodeServerSecurityGroup
+          - GroupId
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
+      CidrIp: 0.0.0.0/0
+
+  VSCodeServerSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: egress for vscode security group
+      GroupId:
+        Fn::GetAtt:
+          - VSCodeServerSecurityGroup
+          - GroupId
+      IpProtocol: -1
+      CidrIp: 0.0.0.0/0
+#------------------------------------------------------
+# IDE Server Role and Instance Profile
+#------------------------------------------------------
+  VSCodeServerIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Tags:
+        - Key: group
+          Value: ecs-mythical
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+  IdeInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - Ref: VSCodeServerIAMRole
+#------------------------------------------------------
+# EC2 Instance for VSCode Server
+#------------------------------------------------------
+  VSCodeServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref IdeAmiId
+      InstanceType: !Ref IdeInstanceType
+      IamInstanceProfile: !Ref IdeInstanceProfile
+      Tags:
+        - Key: Name
+          Value: VSCodeServer
+        - Key: group
+          Value: ecs-mythical
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          AssociatePublicIpAddress: "true"
+          SubnetId: !Ref IdePublicSubnet 
+          GroupSet:
+            - Fn::GetAtt:
+                - VSCodeServerSecurityGroup
+                - GroupId
+      Monitoring: true
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+            - |
+              #!/bin/bash
+              sudo dnf install git -y
+              sudo dnf install wget  -y
+              sudo yum install make -y
+              sudo wget https://github.com/coder/code-server/releases/download/v${VERSION}/code-server-${VERSION}-amd64.rpm
+              sudo rpm -i code-server-${VERSION}-amd64.rpm
+              sudo systemctl enable --now code-server@${cUSER}
+              sleep 30
+              sed -i.bak 's/auth: password/auth: none/' /home/${cUSER}/.config/code-server/config.yaml
+              sed -i.bak 's/bind-addr: 127.0.0.1:8080/bind-addr: 0.0.0.0:8080/' /home/${cUSER}/.config/code-server/config.yaml
+              sudo systemctl restart code-server@${cUSER}
+              sudo -u ${cUSER} bash -c "code-server --install-extension AmazonWebServices.aws-toolkit-vscode"
+              sudo dnf update
+              sudo dnf install unzip -y
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+              unzip awscliv2.zip
+              sudo ./aws/install
+              curl "https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip" -o "awscliv2.zip"
+              unzip aws-sam-cli-linux-x86_64.zip -d sam-installation
+              sudo ./sam-installation/install
+              sudo dnf install -y docker
+              sudo service docker start
+              sudo usermod -aG docker ${cUSER}
+              sudo -u ${cUSER} bash -c "newgrp docker"
+              sudo -u ${cUSER} bash -c "mkdir /home/${cUSER}/environment"
+              sudo -u ${cUSER} bash -c "echo 'export REGION=${AWS_REGION}' >> /home/${cUSER}/.bashrc"
+              sudo -u ${cUSER} bash -c "echo 'export STACK_NAME=${AWS_STACK_NAME}' >> /home/${cUSER}/.bashrc"
+              sudo reboot
+            - VERSION: !Ref VSCodeServerVersion
+              cUSER: !Ref IdeUser
+              AWS_REGION: !Ref AWS::Region
+              AWS_STACK_NAME: !Ref AWS::StackName
 
 Outputs:
   LoadBalancerDNS:
@@ -528,11 +760,27 @@ Outputs:
   SiteBucket:
     Value: !Ref MythicalBucket
     Condition: MakeBucket
-  Cloud9Env:
-    Value: 
-      !Join ["",["https://",!Ref "AWS::Region",".console.aws.amazon.com/cloud9/ide/",!Ref MythicalEnvironment,"?region=",!Ref "AWS::Region"]]
   ProfileName:
     Value: !Ref MythicalProfile
   S3WebsiteURL:
     Description: This is the DNS name of your S3 site
     Value: !GetAtt MythicalBucket.WebsiteURL
+  VSCodeServerDomainName:
+    Value: 
+      !Sub 
+        - "http://${domain}:8080"
+        - { domain: !GetAtt VSCodeServer.PublicDnsName }
+    Export:
+      Name: !Sub ${AWS::StackName}-public-domain-name
+  VSCodeServerPrivateIP:
+    Value: !GetAtt VSCodeServer.PrivateIp
+    Export:
+      Name: !Sub ${AWS::StackName}-code-server-private-ip
+  VSCodeServerRoleARN:
+    Value: !GetAtt VSCodeServerIAMRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-code-server-role-arn
+  VSCodeServerInstanceId:
+    Value: !Ref VSCodeServer
+    Export:
+      Name: !Sub ${AWS::StackName}-code-server-instance-id

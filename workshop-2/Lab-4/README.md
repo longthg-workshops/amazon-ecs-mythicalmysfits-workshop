@@ -2,7 +2,7 @@
 
 ## Lab 4: Implement Container Image scanning
 
-In this lab we will really put the Sec in DevSecOps by including Clair, a static vulnerability scanner for container images. Clair is a service that requires a Postgres DB and a running container. Because we know you already know how to stand up ECS services we've already stood up the Clair service for you in the core.yml CloudFormation template. Now we're going to add another CodeBuild project to run Clair via a tool called Klar, add a test phase to the pipeline we created in Lab 3, then run our CodeBuild project in that test phase. Klar is a wrapper around the Clair APIs that makes it easier to use integration piplines like this one. Check out the [Klar GitHub repo](https://github.com/optiopay/klar)) for more info.
+In this lab we will really put the Sec in DevSecOps by including Clair, a static vulnerability scanner for container images. Clair is a service that requires a Postgres DB and a running container. Because we know you already know how to stand up ECS services we've already stood up the Clair service for you in the core.yaml CloudFormation template. Now we're going to add another CodeBuild project to run Clair via a tool called Klar, add a test phase to the pipeline we created in Lab 3, then run our CodeBuild project in that test phase. Klar is a wrapper around the Clair APIs that makes it easier to use integration piplines like this one. Check out the [Klar GitHub repo](https://github.com/optiopay/klar)) for more info.
 
 Why would we use Clair? Injecting automated security into the pipeline gives you the same benefit as automated test - the ability to move quickly with confidence that you haven't regressed on security.
 

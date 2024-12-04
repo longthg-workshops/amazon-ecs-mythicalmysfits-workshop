@@ -17,7 +17,7 @@ API_ENDPOINT=$(jq < cfn-output.json -er '.LoadBalancerDNS')
 # For auth, not used now
 #USER_POOL_ID=$(jq < cfn-output.json -er '.UserPoolId')
 #CLIENT_ID=$(jq < cfn-output.json -er '.ClientId')
-REGION=$(aws configure get region)
+REGION=$(aws ec2 describe-availability-zones --output text --query 'AvailabilityZones[0].[RegionName]')
 
 TEMP_DIR=$(mktemp -d)
 
