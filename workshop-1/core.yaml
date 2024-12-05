@@ -30,6 +30,9 @@ Parameters:
     Type: String
     Description: VSCodeServerVersion
     Default: 4.95.3
+  IDEHashedPassword:
+    Type: String
+    Description: Hashed Password for VSCode Server
 #------------------------------------------------------
 # Conditions
 #------------------------------------------------------
@@ -71,6 +74,11 @@ Resources:
     Condition: MakeBucket
     Properties:
       # AccessControl: PublicRead
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
@@ -726,7 +734,7 @@ Resources:
               sudo rpm -i code-server-${VERSION}-amd64.rpm
               sudo systemctl enable --now code-server@${cUSER}
               sleep 30
-              sed -i.bak 's/auth: password/auth: none/' /home/${cUSER}/.config/code-server/config.yaml
+              sed -i.bak 's/^password:.*/hashed-password:\ \"${HASHED_PW}\"/g' /home/${cUSER}/.config/code-server/config.yaml
               sed -i.bak 's/bind-addr: 127.0.0.1:8080/bind-addr: 0.0.0.0:8080/' /home/${cUSER}/.config/code-server/config.yaml
               sudo systemctl restart code-server@${cUSER}
               sudo -u ${cUSER} bash -c "code-server --install-extension AmazonWebServices.aws-toolkit-vscode"
@@ -745,11 +753,13 @@ Resources:
               sudo -u ${cUSER} bash -c "mkdir /home/${cUSER}/environment"
               sudo -u ${cUSER} bash -c "echo 'export REGION=${AWS_REGION}' >> /home/${cUSER}/.bashrc"
               sudo -u ${cUSER} bash -c "echo 'export STACK_NAME=${AWS_STACK_NAME}' >> /home/${cUSER}/.bashrc"
+              sudo -u ec2-user bash -c "echo 'export PS1=\"\[\e[32m\][\[\e[m\]\[\e[31m\]\u\[\e[m\]\[\e[33m\]@\[\e[m\]\[\e[32m\]\h\[\e[m\]:\[\e[36m\]\w\[\e[m\]\[\e[32m\]]\[\e[m\]\[\e[32;47m\]\\$\[\e[m\] \"' >> /home/ec2-user/.bashrc"
               sudo reboot
             - VERSION: !Ref VSCodeServerVersion
               cUSER: !Ref IdeUser
               AWS_REGION: !Ref AWS::Region
               AWS_STACK_NAME: !Ref AWS::StackName
+              HASHED_PW: !Ref IDEHashedPassword
 
 Outputs:
   LoadBalancerDNS:
